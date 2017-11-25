@@ -12,7 +12,6 @@ typedef struct {
   fd_set read_fds;            /* all ready-to-read descriptors */
   int maxfd;                  /* maximum value of all descriptors */
   int nready;                 /* number of ready descriptors */
-  int maxi;                   /* maximum index of available slot */
   int client_fd[FD_SETSIZE];  /* client slots */
 } client_pool;
 

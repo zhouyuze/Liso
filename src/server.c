@@ -13,7 +13,6 @@ void init_pool(int listenfd, client_pool *p) {
   FD_SET(listenfd, &p->master);
   p->maxfd = listenfd;
   p->nready = 0;
-  p->maxi = -1;
   for (int i = 0; i < FD_SETSIZE; i++) {
     p->client_fd[i] = -1;     /* - 1 indicates avaialble entry */
   }
@@ -32,7 +31,6 @@ void add_client_to_pool(int newfd, client_pool *p) {
       p->client_fd[i] = newfd;
       FD_SET(newfd, &p->master);
       p->maxfd = (newfd > p->maxfd) ? newfd : p->maxfd;
-      p->maxi = (i > p->maxi) ? i : p->maxi;
       break;
     }
   }
@@ -48,7 +46,7 @@ void handle_clients(client_pool *p) {
   int i, nbytes, clientfd;
   char buf[BUF_SIZE];
 
-  for (i = 0; (i <= p->maxi) && (p->nready > 0); i++) {
+  for (i = 0; p->nready > 0; i++) {
     clientfd = p->client_fd[i];
     if (clientfd <= 0) continue;
 
@@ -69,7 +67,6 @@ void handle_clients(client_pool *p) {
         clear_client(clientfd, i, p);
       }
       p->nready--;
-      if (p->nready <= 0) return; /* No more readable descriptors */
     } // End handling readable descriptor.
   } // End for loop.
 } // End function.
