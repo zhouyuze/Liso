@@ -1,5 +1,6 @@
-#include <liso.h>
-#include <server.h>
+#include "liso.h"
+#include "client_pool.h"
+#include "handle_clients.h"
 
 int main(int args, char **argv) {
 
@@ -17,38 +18,25 @@ int main(int args, char **argv) {
   sockaddr_in clientaddr;
   socklen_t addrlen = sizeof(sockaddr_in);
   char remoteIP[INET6_ADDRSTRLEN];
-  static client_pool pool;
 
   /* Create server's only listener socket */
   printlog("[Main] ************Liso Echo Server*********");
-  while ((listenfd = open_listenfd(port)) < 0) ;
+  if ((listenfd = open_listenfd(port)) < 0) {
+    printlog("[Main] Can not open port %d", port);
+    exit(1);
+  }
   printlog("[Main] Successfully create listener socket %d", listenfd);
 
   /* Init client pool */
-  init_pool(listenfd, &pool);
+  init_client_pool(listenfd);
 
   while(1) {
     printlog("[Main] Selecting...");
-    pool.read_fds = pool.master;
-    pool.nready = select(pool.maxfd+1, &pool.read_fds, NULL, NULL, NULL);
-
-    /* Handle exception in select, ignore all inormal cases */
-    if (pool.nready <= 0) {
-      if (pool.nready < 0) {
-        printlog("[Main] Error select");
-      }
-      continue;
-    }
+    pool.ready = select(pool.maxfd+1, &pool.read_fds, NULL, NULL, NULL);
 
     if (FD_ISSET(listenfd, &pool.read_fds)) {
       /* Handle new incoming connections from client */
       newfd = accept(listenfd, (sockaddr *)&clientaddr, &addrlen);
-
-      if (newfd < 0) {
-        /* Ignore exception case in accept */
-        printlog("[Main] Error when accepting new client connection");
-        continue;
-      }
 
       printlog("[Main] New connection from %s on socket %d",
                inet_ntop(clientaddr.sin_family,
@@ -57,10 +45,12 @@ int main(int args, char **argv) {
                          INET6_ADDRSTRLEN),
                newfd);
 
-      add_client_to_pool(newfd, &pool);
-
-      if (pool.nready <= 0) continue;   /* No more readable descriptors */
+      add_client(newfd);
+      pool.ready--;
     }
-    handle_clients(&pool);
+
+    if (pool.ready > 0) {
+      handle_clients();
+    }
   }
 }
